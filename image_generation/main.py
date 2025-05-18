@@ -25,7 +25,13 @@ def main(
     # edge.unet
     edge.to(edge_device)
 
-    cloud = CloudStableDiffusionXLPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", use_safetensors=True)
+    cloud = CloudStableDiffusionXLPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-xl-base-1.0",
+        use_safetensors=True,
+        torch_dtype=torch.float16,  # Half-precision
+        low_cpu_mem_usage=True,  # Stream loading
+        variant="fp16"  # Use FP16 variant
+        )
     # del cloud.tokenizer
     # del cloud.text_encoder
     # del cloud.vae
