@@ -16,9 +16,9 @@ class SplitComputingLoggerForLdm:
         else:
             self.log_dir = f'log/{log_dir_name}'
 
-        os.makedirs(self.log_dir)
-        os.makedirs(f'{self.log_dir}/predicted_noise_img')
-        os.makedirs(f'{self.log_dir}/decoded_image')
+        os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(f'{self.log_dir}/predicted_noise_img', exist_ok=True)
+        os.makedirs(f'{self.log_dir}/decoded_image', exist_ok=True)
 
     def save_initial_data(
         self,

@@ -163,8 +163,11 @@ class EdgeStableDiffusionXLPipeline(StableDiffusionXLPipeline):
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
             add_time_ids = torch.cat([negative_add_time_ids, add_time_ids], dim=0)
 
-        prompt_embeds = prompt_embeds.to(device)
-        add_text_embeds = add_text_embeds.to(device)
+        prompt_embeds = prompt_embeds.to(device).to(torch.float16)
+        add_text_embeds = add_text_embeds.to(device).to(torch.float16)
+        add_time_ids = add_time_ids.to(device) # usually int, keep as is unless model expects float16
+        latents = latents.to(device).to(torch.float16)
+
         add_time_ids = add_time_ids.to(device).repeat(batch_size * num_images_per_prompt, 1)
 
         # 8. Denoising loop
@@ -208,7 +211,8 @@ class EdgeStableDiffusionXLPipeline(StableDiffusionXLPipeline):
             self.upcast_vae()
             latents = self.latents.to(next(iter(self.vae.post_quant_conv.parameters())).dtype)
         else:
-            latents = self.latents
+            # Ensure latents match VAE's post_quant_conv dtype
+            latents = self.latents.to(next(iter(self.vae.post_quant_conv.parameters())).dtype)
 
         if not self.output_type == "latent":
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
@@ -314,10 +318,10 @@ class CloudStableDiffusionXLPipeline(StableDiffusionXLPipeline):
         #     add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
         #     add_time_ids = torch.cat([add_time_ids, add_time_ids], dim=0)
 
-        prompt_embeds = prompt_embeds.to(device)
-        add_text_embeds = add_text_embeds.to(device)
-        add_time_ids = add_time_ids.to(device) # .repeat(batch_size * num_images_per_prompt, 1)
-        latents = latents.to(device)
+        prompt_embeds = prompt_embeds.to(device).to(torch.float16)
+        add_text_embeds = add_text_embeds.to(device).to(torch.float16)
+        add_time_ids = add_time_ids.to(device) # usually int, keep as is unless model expects float16
+        latents = latents.to(device).to(torch.float16)
 
         # 8. Denoising loop
         num_warmup_steps = max(len(timesteps) - num_inference_steps * self.scheduler.order, 0)
@@ -356,6 +360,9 @@ class CloudStableDiffusionXLPipeline(StableDiffusionXLPipeline):
         latent_model_input = torch.cat([self.latents] * 2) if self.do_classifier_free_guidance else self.latents
 
         latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+
+        latent_model_input = latent_model_input.to(torch.float16)
+        t = t.to(torch.float16) if isinstance(t, torch.Tensor) else torch.tensor(t, dtype=torch.float16, device=latent_model_input.device)
 
         # predict the noise residual
         added_cond_kwargs = {"text_embeds": self.add_text_embeds, "time_ids": self.add_time_ids}

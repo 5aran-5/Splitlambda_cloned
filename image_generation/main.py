@@ -162,15 +162,15 @@ def main(
                     random_seed = gr.Number(value=42, label="Random seed")
                     freq = gr.Slider(value=10, minimum=1, maximum=50, step=1, label="Image decode frequency (step)")
                     quantize = gr.Radio(quantize_methods, label="Transmitted noise quantization method", value="FP32")
-                    cloud_quantize = gr.Checkbox(label="Quantize on cloud", default=True)
+                    cloud_quantize = gr.Checkbox(label="Quantize on cloud", value=True)
 
-                    button = gr.Button(label="Generate Image")
+                    button = gr.Button(value="Generate Image")
 
                 with gr.Column(scale=2):
                     gr.Markdown(f"<center>Generated Image</center>")
 
                     current_step = gr.Textbox(label="Current generation step")
-                    with gr.Row(scale=1):
+                    with gr.Row():
                         predicted_noise = gr.Image(type="pil", label="Visualized transmission data : predicted Gaussian noise")
                         image = gr.Image(type="pil", label="Generated image")
 
@@ -209,10 +209,10 @@ def main(
         # prompt = 'An astronaut riding a green horse' # input('Prompt : ')
         prompt = 'A majestic lion jumping from a big stone at night'
         prompt = 'A robot painted as graffiti on a brick wall. a sidewalk is in front of the wall, and grass is growing out of cracks in the concrete.'
-        prompt = 'Panda mad scientist mixing sparkling chemicals, artstation.'
+        #prompt = 'Panda mad scientist mixing sparkling chemicals, artstation.'
         # prompt = 'Astronaut in a jungle, cold color palette, muted colors, detailed, 8k'
-        prompt = 'a close-up of a fire spitting dragon, cinematic shot'
-        num_inference_steps = 50 # int(input('Number of inference steps : '))
+        #prompt = 'a close-up of a fire spitting dragon, cinematic shot'
+        num_inference_steps = 25 # int(input('Number of inference steps : '))
         random_seed = 42 # int(input('Random seed : '))
         freq = 10 # int(input('Generated image update frequency : '))
 
