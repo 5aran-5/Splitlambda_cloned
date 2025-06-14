@@ -36,9 +36,10 @@ def main(
     # del cloud.text_encoder
     # del cloud.vae
     cloud.to(cloud_device)
+    
 
 
-    def infer_each_request(prompt, num_inference_steps, random_seed, freq, quantize, cloud_quantize):
+    def infer_each_request(prompt, num_inference_steps, random_seed, freq, quantize, cloud_quantize, early_exit_threshold=0.98,min_steps = 10):
         fix_seed_and_free_memory(round(random_seed))
 
         # Triadic split computing : edge -> cloud -> edge
@@ -50,7 +51,10 @@ def main(
         
         initial_image = edge.decode_image()
         timesteps = edge.timesteps
-        
+
+        last_latents = None
+        should_exit = False
+
         # Cloud が first_hidden_layer_outputs を受け取って、denoising に必要な準備する
         cloud.receive_hidden_layer_outputs_and_prepare_for_denoising(
             prompt_embeds=prompt_embeds,
@@ -79,6 +83,8 @@ def main(
 
         # Denoising
         for idx in tqdm(range(num_inference_steps)):
+            if should_exit:
+                break
             print(idx)
 
             ## Second subpipeline on cloud
@@ -120,6 +126,17 @@ def main(
             # Third subpipeline on edge
             edge.infer_third_pipeline(idx, predicted_noise)
 
+            if idx >= min_steps:
+                current_latents = edge.latents.detach()
+                if last_latents is not None:
+                    # Calculate change in latents
+                    diff = torch.mean(torch.abs(current_latents - last_latents)).item()
+                    # If change is below threshold, trigger early exit
+                    if diff < early_exit_threshold:
+                        should_exit = True
+                        print(f"Early exit triggered at step {idx} with latent diff {diff:.6f}")
+                last_latents = current_latents
+            decode_image = True if idx % freq == 0 or idx == num_inference_steps - 1 or should_exit else False
 
             # Post processing
             idx += 1
@@ -170,7 +187,7 @@ def main(
                     gr.Markdown(f"<center>Generated Image</center>")
 
                     current_step = gr.Textbox(label="Current generation step")
-                    with gr.Row():
+                    with gr.Row(scale=1):
                         predicted_noise = gr.Image(type="pil", label="Visualized transmission data : predicted Gaussian noise")
                         image = gr.Image(type="pil", label="Generated image")
 
@@ -209,9 +226,9 @@ def main(
         # prompt = 'An astronaut riding a green horse' # input('Prompt : ')
         prompt = 'A majestic lion jumping from a big stone at night'
         prompt = 'A robot painted as graffiti on a brick wall. a sidewalk is in front of the wall, and grass is growing out of cracks in the concrete.'
-        #prompt = 'Panda mad scientist mixing sparkling chemicals, artstation.'
-        prompt = 'Astronaut in a jungle, cold color palette, muted colors, detailed, 8k'
-        #prompt = 'a close-up of a fire spitting dragon, cinematic shot'
+        prompt = 'Panda mad scientist mixing sparkling chemicals, artstation.'
+        # prompt = 'Astronaut in a jungle, cold color palette, muted colors, detailed, 8k'
+        prompt = 'a close-up of a fire spitting dragon, cinematic shot'
         num_inference_steps = 50 # int(input('Number of inference steps : '))
         random_seed = 42 # int(input('Random seed : '))
         freq = 10 # int(input('Generated image update frequency : '))
@@ -237,4 +254,4 @@ if __name__ == '__main__':
     quantize_methods = args.quantize_methods
     show_ui = not args.no_gui
     
-    main(edge_device, cloud_device, quantize_methods, show_ui)
+    main(edge_device, cloud_device, quantize_methods, False)

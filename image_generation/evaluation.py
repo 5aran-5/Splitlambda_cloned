@@ -8,7 +8,7 @@ from src.vif.vif_utils import vif
 from PIL import Image
 
 
-log_dir = 'log/lion_42'
+log_dir = 'log/a_42'
 
 
 if __name__ == '__main__':
