@@ -39,7 +39,7 @@ def main(
     
 
 
-    def infer_each_request(prompt, num_inference_steps, random_seed, freq, quantize, cloud_quantize, early_exit_threshold=0.98,min_steps = 10):
+    def infer_each_request(prompt, num_inference_steps, random_seed, freq, quantize, cloud_quantize, early_exit_threshold=0.027,min_steps = 20):
         fix_seed_and_free_memory(round(random_seed))
 
         # Triadic split computing : edge -> cloud -> edge
@@ -83,8 +83,6 @@ def main(
 
         # Denoising
         for idx in tqdm(range(num_inference_steps)):
-            if should_exit:
-                break
             print(idx)
 
             ## Second subpipeline on cloud
@@ -131,16 +129,15 @@ def main(
                 if last_latents is not None:
                     # Calculate change in latents
                     diff = torch.mean(torch.abs(current_latents - last_latents)).item()
+                    print(f"Step {idx}: latent diff = {diff:.6f}")  # Add this line
                     # If change is below threshold, trigger early exit
                     if diff < early_exit_threshold:
                         should_exit = True
-                        print(f"Early exit triggered at step {idx} with latent diff {diff:.6f}")
                 last_latents = current_latents
-            decode_image = True if idx % freq == 0 or idx == num_inference_steps - 1 or should_exit else False
 
             # Post processing
             idx += 1
-            decode_image = True if idx % freq == 0 or idx == num_inference_steps else False
+            decode_image = True if should_exit or (idx % freq == 0) or (idx == num_inference_steps) else False
             if decode_image:
                 image = edge.decode_image()
 
@@ -155,7 +152,7 @@ def main(
                 yield_str += '  (Decoding image...)'
 
             split_computing_logger.save_data(
-                idx,
+                idx-1,
                 predicted_noise_npy,
                 predicted_noise_img,
                 quantizer=quantizer,
@@ -163,6 +160,10 @@ def main(
             )
 
             yield yield_str, predicted_noise_img, image
+
+            if should_exit:
+                print(f"Early exit triggered at step {idx-1} with latent diff {diff:.6f}")
+                break
 
 
     if show_ui:
@@ -225,13 +226,13 @@ def main(
     else:
         # prompt = 'An astronaut riding a green horse' # input('Prompt : ')
         prompt = 'A majestic lion jumping from a big stone at night'
-        prompt = 'A robot painted as graffiti on a brick wall. a sidewalk is in front of the wall, and grass is growing out of cracks in the concrete.'
-        prompt = 'Panda mad scientist mixing sparkling chemicals, artstation.'
-        # prompt = 'Astronaut in a jungle, cold color palette, muted colors, detailed, 8k'
-        prompt = 'a close-up of a fire spitting dragon, cinematic shot'
-        num_inference_steps = 50 # int(input('Number of inference steps : '))
+        #prompt = 'A robot painted as graffiti on a brick wall. a sidewalk is in front of the wall, and grass is growing out of cracks in the concrete.'
+        #prompt = 'Panda mad scientist mixing sparkling chemicals, artstation.'
+        #prompt = 'Astronaut in a jungle, cold color palette, muted colors, detailed, 8k'
+        #prompt = 'a close-up of a fire spitting dragon, cinematic shot'
+        num_inference_steps = 30 # int(input('Number of inference steps : '))
         random_seed = 42 # int(input('Random seed : '))
-        freq = 10 # int(input('Generated image update frequency : '))
+        freq = 1 # int(input('Generated image update frequency : '))
 
         for cloud_quantize in [True]:
             for quantize in quantize_methods:
